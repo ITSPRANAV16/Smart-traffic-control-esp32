@@ -47,11 +47,14 @@
     html, body {
       width: 100%;
       height: 100%;
+      height: 100dvh;
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background: var(--navy-950);
       color: #1e293b;
       user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
 
     /* ==========================================================================
@@ -149,8 +152,9 @@
     .scada-viewport {
       position: relative;
       width: 100vw;
-      height: 100vh;
-      max-height: 100vh;
+      height: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -989,9 +993,11 @@
       outline: none;
     }
 
-    /* Responsive */
-    @media (max-width: 900px) {
-      .top-glass-bar, .bottom-glass-ribbon { margin: 8px 10px; padding: 8px 14px; }
+    /* ==========================================================================
+       RESPONSIVE RESOLUTION ENGINE (MOBILE, TABLET & DESKTOP FULL-SCREEN)
+       ========================================================================== */
+    @media (max-width: 960px) {
+      .top-glass-bar, .bottom-glass-ribbon { margin: 6px 10px; padding: 6px 12px; }
       .brand-info h1 { font-size: 0.95rem; }
       .corner-console { padding: 8px 10px; gap: 8px; }
       .console-title { font-size: 0.75rem; }
@@ -1000,6 +1006,150 @@
       .scada-center-hub { width: 110px; height: 110px; }
       .hub-circular-svg { width: 100px; height: 100px; }
       .hub-countdown { font-size: 1.8rem; }
+    }
+
+    /* Standard Mobile Phones (Portrait <= 768px) */
+    @media (max-width: 768px) {
+      .top-glass-bar {
+        margin: 4px 6px 0 6px;
+        padding: 6px 8px;
+        gap: 6px;
+        border-radius: 12px;
+      }
+      .brand-badge-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+      }
+      .brand-badge-icon svg { width: 16px; height: 16px; }
+      .brand-info h1 { font-size: 0.82rem; gap: 4px; }
+      .brand-info p { display: none; }
+      .ver-chip { display: none; }
+      .team-credit-tag { font-size: 0.52rem; padding: 2px 6px; }
+
+      .mode-deck { padding: 2px; gap: 2px; }
+      .mode-btn { padding: 5px 9px; font-size: 0.68rem; gap: 4px; }
+      .mode-btn svg { width: 12px; height: 12px; }
+
+      .top-actions { gap: 4px; }
+      .btn-link-status { padding: 4px 8px; font-size: 0.66rem; gap: 5px; }
+      .action-btn { padding: 5px 8px; font-size: 0.68rem; gap: 4px; }
+      .action-btn.btn-vip span { display: none; }
+      .btn-audio { width: 30px; height: 30px; }
+
+      .cockpit-stage {
+        padding: 4px 6px;
+        flex: 1;
+        min-height: 0;
+      }
+      .intersection-theater {
+        aspect-ratio: auto;
+        height: 100%;
+        max-width: 100%;
+        border-radius: 14px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+      }
+
+      /* Compact Holographic Radar Hub */
+      .scada-center-hub {
+        width: 86px;
+        height: 86px;
+        border-width: 1.5px;
+      }
+      .hub-circular-svg {
+        width: 78px;
+        height: 78px;
+      }
+      .hub-track, .hub-meter { stroke-width: 4; }
+      .hub-phase-title { font-size: 0.46rem; letter-spacing: 0.4px; }
+      .hub-countdown { font-size: 1.35rem; }
+      .hub-current-road { font-size: 0.48rem; margin-top: 1px; }
+
+      /* Corner Consoles: Micro floating consoles for mobile */
+      .corner-console {
+        padding: 5px 8px;
+        gap: 6px;
+        border-radius: 10px;
+        max-width: 135px;
+      }
+      .console-top-left { top: 6px; left: 6px; }
+      .console-top-right { top: 6px; right: 6px; }
+      .console-bottom-right { bottom: 6px; right: 6px; }
+      .console-bottom-left { bottom: 6px; left: 6px; }
+
+      .optic-housing-3d {
+        padding: 3px 4px;
+        border-radius: 10px;
+        gap: 3px;
+      }
+      .optic-lens { width: 11px; height: 11px; }
+      .console-title { font-size: 0.68rem; font-weight: 900; }
+      .gpio-pill { display: none; }
+      .console-status-line { font-size: 0.58rem; }
+      .btn-console-go {
+        padding: 4px 6px;
+        font-size: 0.58rem;
+        border-radius: 6px;
+      }
+
+      /* Bottom Ribbon on Mobile */
+      .bottom-glass-ribbon {
+        margin: 0 6px 4px 6px;
+        padding: 5px 8px;
+        gap: 6px;
+        border-radius: 12px;
+      }
+      .telemetry-group { gap: 8px; }
+      .telemetry-item { font-size: 0.68rem; gap: 4px; }
+      .item-label { font-size: 0.58rem; }
+      .item-val { font-size: 0.68rem; }
+      .badge-live-tag { font-size: 0.58rem; padding: 1px 5px; }
+      .team-signature-pill { font-size: 0.62rem; padding: 2px 7px; }
+      .interlock-badge { display: none; }
+    }
+
+    /* Small Mobile Phones (width <= 420px) */
+    @media (max-width: 420px) {
+      .corner-console {
+        padding: 4px 6px;
+        max-width: 112px;
+        gap: 4px;
+      }
+      .console-title { font-size: 0.6rem; }
+      .console-status-line { display: none; }
+      .btn-console-go { font-size: 0.55rem; padding: 3px 5px; }
+      
+      .mode-btn {
+        padding: 4px 7px;
+        font-size: 0.62rem;
+      }
+      .telemetry-item:last-child {
+        display: none;
+      }
+    }
+
+    /* Mobile Landscape Optimization (height <= 500px) */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .top-glass-bar {
+        margin: 2px 8px 0 8px;
+        padding: 3px 8px;
+      }
+      .brand-info h1 { font-size: 0.75rem; }
+      .bottom-glass-ribbon {
+        margin: 0 8px 2px 8px;
+        padding: 3px 8px;
+      }
+      .cockpit-stage { padding: 2px 6px; }
+      .scada-center-hub {
+        width: 76px;
+        height: 76px;
+      }
+      .hub-circular-svg { width: 70px; height: 70px; }
+      .hub-countdown { font-size: 1.2rem; }
+      .corner-console {
+        padding: 3px 6px;
+        max-width: 110px;
+      }
     }
   </style>
 </head>
@@ -1086,6 +1236,11 @@
         <button class="btn-audio muted" id="btnAudioToggle" onclick="toggleAudio()" title="Toggle Sound FX (Mute / Unmute)">
           <svg id="audioIconOn" style="display:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
           <svg id="audioIconOff" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+        </button>
+
+        <!-- Full Screen Toggle Button -->
+        <button class="action-btn" onclick="toggleFullScreen()" title="Toggle Fullscreen View" id="btnFullscreen">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
         </button>
 
         <!-- Config Timings -->
@@ -2044,6 +2199,24 @@
 
     function closeConnectionModal() {
       document.getElementById('connectionModal').classList.remove('open');
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else if (document.documentElement.webkitRequestFullscreen) {
+          document.documentElement.webkitRequestFullscreen();
+        }
+        showToast("Full Screen Mode: Active", "#0284c7");
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+        showToast("Exited Full Screen");
+      }
     }
 
     // --------------------------------------------------------------------------
