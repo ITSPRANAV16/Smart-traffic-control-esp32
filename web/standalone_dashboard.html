@@ -393,6 +393,11 @@
       box-shadow: 0 0 8px #10b981;
       animation: pulsePing 2s infinite;
     }
+    .status-dot-simulator {
+      background: #f59e0b;
+      box-shadow: 0 0 8px #f59e0b;
+      animation: pulsePing 2.5s infinite;
+    }
     .status-dot-offline {
       background: #ef4444;
       box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
@@ -409,6 +414,11 @@
     .link-latency-tag.online {
       background: #ecfdf5;
       color: #059669;
+    }
+    .link-latency-tag.simulator {
+      background: #fef3c7;
+      color: #b45309;
+      font-weight: 700;
     }
 
     .btn-audio {
@@ -839,6 +849,10 @@
     .conn-status-card.is-online {
       background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
       border-color: #86efac;
+    }
+    .conn-status-card.is-simulator {
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border-color: #fcd34d;
     }
     .conn-status-card.is-offline {
       background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
@@ -1423,6 +1437,15 @@
           ESP32 Hardware Connection Center
         </h2>
         <button class="modal-close" onclick="closeConnectionModal()">&times;</button>
+      </div>
+
+      <!-- HTTPS Mixed Content Alert (Render/Cloud) -->
+      <div id="httpsWarningBanner" style="display:none; background:#fffbeb; border:1.5px solid #f59e0b; border-radius:10px; padding:10px 14px; font-size:0.75rem; color:#92400e; margin-bottom:12px; line-height:1.4;">
+        <strong>⚠️ Browser Security Alert (HTTPS / Render):</strong>
+        <div>ब्राउझर सिक्युरिटीमुळे HTTPS वेबसाईटवरून लोकल ESP32 (<code>http://192.168.4.1</code>) कडे थेट सिग्नल जात नाही.</div>
+        <div style="margin-top:6px; font-weight:700; color:#b45309;">
+          👉 <strong>खरा ESP32 चालवण्यासाठी:</strong> मोबाईल <strong>TrafficLight-ESP32</strong> वायफायला कनेक्ट करा आणि थेट <strong><a href="http://192.168.4.1" target="_blank" style="color:#0284c7; text-decoration:underline;">http://192.168.4.1</a></strong> उघडा!
+        </div>
       </div>
 
       <!-- Live Connectivity Status Card -->
@@ -2078,8 +2101,10 @@
     // --------------------------------------------------------------------------
     // 6. ESP32 HARDWARE CONNECTIVITY & HEARTBEAT ENGINE
     // --------------------------------------------------------------------------
-    function updateConnectionStatusUI(isOnline, pingMs = 0, data = {}) {
-      appState.isHardwareConnected = isOnline;
+    function updateConnectionStatusUI(statusMode, pingMs = 0, data = {}) {
+      const isOnline = (statusMode === 'hardware' || statusMode === 'simulator');
+      appState.isHardwareConnected = (statusMode === 'hardware');
+      
       const linkDot = document.getElementById('linkDot');
       const linkText = document.getElementById('linkStatusText');
       const linkLatency = document.getElementById('linkLatencyTag');
@@ -2090,21 +2115,24 @@
       const modalTitle = document.getElementById('modalStatusTitle');
       const modalTag = document.getElementById('modalLatencyTag');
 
-      if (isOnline) {
+      if (statusMode === 'hardware') {
         linkDot.className = 'status-dot-indicator status-dot-online';
-        linkText.innerText = 'ESP32 ONLINE';
+        linkText.innerText = 'ESP32 HARDWARE LINKED';
         linkText.style.color = '#059669';
         linkLatency.className = 'link-latency-tag online';
-        linkLatency.innerText = `${pingMs}ms`;
+        linkLatency.innerText = `${pingMs}ms REAL`;
 
-        topStatus.innerText = `ESP32 HARDWARE LINKED: ${data.ip || '192.168.4.1'} (${pingMs}ms) • 100% NON-BLOCKING MILLIS`;
+        topStatus.innerText = `🟢 PHYSICAL ESP32 HARDWARE LINKED: ${data.ip || '192.168.4.1'} (${pingMs}ms) • 12 LEDs SYNCHRONIZED`;
 
         connBox.className = 'conn-status-card is-online';
         modalDot.className = 'status-dot-indicator status-dot-online';
-        modalTitle.innerText = 'ESP32 HARDWARE CONNECTED & ACTIVE';
+        modalTitle.innerText = 'PHYSICAL ESP32 HARDWARE ACTIVE';
         modalTitle.style.color = '#059669';
         modalTag.className = 'badge-live-tag';
-        modalTag.innerText = `SYNCHRONIZED (${pingMs}ms)`;
+        modalTag.style.background = '#ecfdf5';
+        modalTag.style.color = '#059669';
+        modalTag.style.borderColor = '#86efac';
+        modalTag.innerText = `HARDWARE LINK (${pingMs}ms)`;
 
         if (data.ip) document.getElementById('metaIp').innerText = data.ip;
         document.getElementById('metaPing').innerText = `${pingMs} ms`;
@@ -2118,14 +2146,36 @@
           const s = data.uptime_sec % 60;
           document.getElementById('metaUptime').innerText = `${m}m ${s}s`;
         }
-      } else {
-        linkDot.className = 'status-dot-indicator status-dot-offline';
-        linkText.innerText = 'ESP32 OFFLINE';
-        linkText.style.color = '#dc2626';
-        linkLatency.className = 'link-latency-tag';
+      } else if (statusMode === 'simulator') {
+        linkDot.className = 'status-dot-indicator status-dot-simulator';
+        linkText.innerText = 'ESP32 OFFLINE (SIMULATOR)';
+        linkText.style.color = '#d97706';
+        linkLatency.className = 'link-latency-tag simulator';
         linkLatency.innerText = 'SIMULATOR';
 
-        topStatus.innerText = 'STANDALONE SCADA SIMULATOR (HARDWARE NOT LINKED) • TEST MODE';
+        topStatus.innerText = '🟡 CLOUD SIMULATOR (ESP32 HARDWARE NOT CONNECTED) • Connect to TrafficLight-ESP32 Wi-Fi';
+
+        connBox.className = 'conn-status-card is-simulator';
+        modalDot.className = 'status-dot-indicator status-dot-simulator';
+        modalTitle.innerText = 'SIMULATOR MODE (HARDWARE NOT CONNECTED)';
+        modalTitle.style.color = '#d97706';
+        modalTag.className = 'badge-live-tag';
+        modalTag.style.background = '#fef3c7';
+        modalTag.style.color = '#b45309';
+        modalTag.style.borderColor = '#fcd34d';
+        modalTag.innerText = 'SIMULATOR ACTIVE';
+
+        document.getElementById('metaIp').innerText = data.ip || '127.0.0.1';
+        document.getElementById('metaPing').innerText = `${pingMs} ms (Local)`;
+        document.getElementById('metaClients').innerText = '0 (Join AP)';
+      } else {
+        linkDot.className = 'status-dot-indicator status-dot-offline';
+        linkText.innerText = 'DISCONNECTED';
+        linkText.style.color = '#dc2626';
+        linkLatency.className = 'link-latency-tag';
+        linkLatency.innerText = 'OFFLINE';
+
+        topStatus.innerText = '🔴 SYSTEM OFFLINE • ESP32 UNREACHABLE';
 
         connBox.className = 'conn-status-card is-offline';
         modalDot.className = 'status-dot-indicator status-dot-offline';
@@ -2135,7 +2185,7 @@
         modalTag.style.background = '#fee2e2';
         modalTag.style.color = '#b91c1c';
         modalTag.style.borderColor = '#fca5a5';
-        modalTag.innerText = 'SIMULATOR ACTIVE';
+        modalTag.innerText = 'OFFLINE';
 
         document.getElementById('metaPing').innerText = '-- ms';
       }
@@ -2168,15 +2218,22 @@
           const latency = Math.round(performance.now() - start);
           appState.lastPingMs = latency;
           appState.consecutiveFails = 0;
-          updateConnectionStatusUI(true, latency, data);
-          playBeep(1000, 0.2, 'sine');
-          showToast(`ESP32 Linked! IP: ${data.ip || target} (${latency}ms)`, "#10b981");
-          addTickerLog(`🟢 Hardware Connected! IP: ${data.ip || target} | Latency: ${latency}ms`);
+          const isHardware = (data && data.ip === '192.168.4.1') || (window.location.hostname === '192.168.4.1');
+          updateConnectionStatusUI(isHardware ? 'hardware' : 'simulator', latency, data);
+          if (isHardware) {
+            playBeep(1000, 0.2, 'sine');
+            showToast(`🟢 Physical ESP32 Hardware Linked! (${latency}ms)`, "#10b981");
+            addTickerLog(`🟢 ESP32 Hardware Connected at 192.168.4.1 | ${latency}ms`);
+          } else {
+            playBeep(650, 0.15, 'sine');
+            showToast(`🟡 Simulator Connected (${latency}ms) — ESP32 Hardware Not Found`, "#f59e0b");
+            addTickerLog(`🟡 Connected to Cloud Simulator. To control hardware, join 'TrafficLight-ESP32' Wi-Fi.`);
+          }
         })
         .catch(err => {
           clearTimeout(timeoutId);
           appState.consecutiveFails++;
-          updateConnectionStatusUI(false);
+          updateConnectionStatusUI('offline');
           playBeep(350, 0.2, 'sawtooth');
           showToast(`ESP32 Link failed. Running local simulator.`, "#ef4444");
           addTickerLog(`⚠️ Link failed at ${target || '/'}. Running local SCADA simulator.`);
@@ -2195,6 +2252,10 @@
     function openConnectionModal() {
       playBeep(800, 0.08);
       document.getElementById('connectionModal').classList.add('open');
+      if (window.location.protocol === 'https:') {
+        const hBanner = document.getElementById('httpsWarningBanner');
+        if (hBanner) hBanner.style.display = 'block';
+      }
     }
 
     function closeConnectionModal() {
@@ -2220,7 +2281,7 @@
     }
 
     // --------------------------------------------------------------------------
-    // 7. COMMAND ACTIONS
+    // 7. COMMAND ACTIONS (CORS Simple Request: text/plain prevents OPTIONS 404)
     // --------------------------------------------------------------------------
     function setMode(newMode) {
       playBeep(750, 0.12, 'square');
@@ -2244,15 +2305,22 @@
       const url = (appState.targetBaseUrl ? appState.targetBaseUrl.replace(/\/$/, '') : '') + '/api/mode';
       fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ mode: newMode === 'emergency' ? 'all_red' : newMode })
-      }).catch(() => {});
+      })
+      .then(r => r.json())
+      .then(res => {
+        addTickerLog(`ESP32 Acknowledged Mode: ${newMode.toUpperCase()}`);
+      })
+      .catch(err => {
+        console.warn('Mode command dispatch info:', err);
+      });
     }
 
     function requestRoadPriority(targetRoad) {
       playBeep(900, 0.15, 'sine');
-      addTickerLog(`Manual Priority requested for ${ROAD_NAMES[targetRoad]}. Initiating safe transition.`);
-      showToast(`Priority granted: ${ROAD_NAMES[targetRoad]}`);
+      addTickerLog(`Manual Priority requested for ${ROAD_NAMES[targetRoad]}. Safe transition initiated.`);
+      showToast(`Priority: ${ROAD_NAMES[targetRoad]}`);
 
       appState.mode = 'manual';
 
@@ -2281,9 +2349,16 @@
       const url = (appState.targetBaseUrl ? appState.targetBaseUrl.replace(/\/$/, '') : '') + '/api/road';
       fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ road: targetRoad + 1 })
-      }).catch(() => {});
+      })
+      .then(r => r.json())
+      .then(res => {
+        addTickerLog(`ESP32 Acknowledged Road ${targetRoad + 1} Priority.`);
+      })
+      .catch(err => {
+        console.warn('Road command dispatch info:', err);
+      });
     }
 
     function triggerAmbulanceCorridor() {
@@ -2312,7 +2387,9 @@
         .then(data => {
           const latency = Math.round(performance.now() - start);
           appState.consecutiveFails = 0;
-          updateConnectionStatusUI(true, latency, data);
+          
+          const isHardware = (data && data.ip === '192.168.4.1') || (window.location.hostname === '192.168.4.1');
+          updateConnectionStatusUI(isHardware ? 'hardware' : 'simulator', latency, data);
 
           appState.mode = data.mode || appState.mode;
           appState.activeRoad = data.activeRoad !== undefined ? data.activeRoad : (data.active_road ? data.active_road - 1 : appState.activeRoad);
@@ -2343,7 +2420,7 @@
           clearTimeout(timeoutId);
           appState.consecutiveFails++;
           if (appState.consecutiveFails >= 2) {
-            updateConnectionStatusUI(false);
+            updateConnectionStatusUI('offline');
           }
           runOfflineSimulationStep();
         });
@@ -2441,7 +2518,7 @@
       const url = (appState.targetBaseUrl ? appState.targetBaseUrl.replace(/\/$/, '') : '') + '/api/settings';
       fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ green: g, yellow: y, greenTime: g, yellowTime: y })
       }).catch(() => {});
     }
