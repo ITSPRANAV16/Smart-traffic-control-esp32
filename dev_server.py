@@ -13,7 +13,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 
-PORT = 5000
+PORT = int(os.environ.get('PORT', 5000))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, 'web')
 
@@ -192,7 +192,7 @@ class TrafficDevHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
 def run():
-    server_address = ('127.0.0.1', PORT)
+    server_address = ('0.0.0.0', PORT)
     httpd = HTTPServer(server_address, TrafficDevHandler)
     url = f"http://localhost:{PORT}"
     print(f"============================================================")

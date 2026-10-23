@@ -1,0 +1,8 @@
+{
+  "name": "smart-traffic-scada-esp32",
+  "version": "1.0.0",
+  "description": "Smart City Traffic SCADA Command Cockpit by Team Alpha",
+  "scripts": {
+    "start": "python dev_server.py"
+  }
+}
