@@ -79,26 +79,40 @@ class TrafficDevHandler(SimpleHTTPRequestHandler):
             phase_names = ["GREEN", "YELLOW", "CLEARANCE"]
             roads = []
             for r in range(4):
-                if state["mode"] == "emergency":
-                    st = "RED"
+                if state["mode"] in ["emergency", "all_red"]:
+                    roads.append({"road": r + 1, "r": 1, "y": 0, "g": 0, "state": "RED"})
                 elif r == state["activeRoad"]:
-                    st = phase_names[state["phase"]]
+                    p = state["phase"]
+                    roads.append({
+                        "road": r + 1,
+                        "r": 1 if p == 2 else 0,
+                        "y": 1 if p == 1 else 0,
+                        "g": 1 if p == 0 else 0,
+                        "state": phase_names[p]
+                    })
                 else:
-                    st = "RED"
-                roads.append({"road": r + 1, "state": st})
+                    roads.append({"road": r + 1, "r": 1, "y": 0, "g": 0, "state": "RED"})
 
+            rem = max(0, state["remainingSeconds"])
             resp = {
-                "status": "success",
+                "status": "online",
                 "mode": state["mode"],
                 "activeRoad": state["activeRoad"],
-                "phase": state["phase"],
-                "phaseName": phase_names[state["phase"]],
-                "remainingSeconds": max(0, state["remainingSeconds"]),
+                "active_road": state["activeRoad"] + 1,
+                "phase": phase_names[state["phase"]],
+                "remaining_ms": rem * 1000,
+                "remainingSeconds": rem,
+                "total_ms": (state["greenTime"] if state["phase"] == 0 else state["yellowTime"]) * 1000,
                 "uptime_sec": uptime,
                 "free_heap": 218940 - (uptime % 100),
                 "wifi_clients": 1,
                 "ip": "127.0.0.1",
-                "roads": roads
+                "roads": roads,
+                "settings": {
+                    "greenTime": state["greenTime"],
+                    "yellowTime": state["yellowTime"],
+                    "clearanceTime": state["clearanceTime"]
+                }
             }
             self.wfile.write(json.dumps(resp).encode('utf-8'))
             return
@@ -116,26 +130,34 @@ class TrafficDevHandler(SimpleHTTPRequestHandler):
         except Exception:
             pass
 
-        if parsed.path == '/api/manual':
-            road = data.get('road', 0)
+        if parsed.path in ['/api/manual', '/api/road']:
+            road = data.get('road', 1)
+            try:
+                road_idx = int(road) - 1
+            except:
+                road_idx = 0
             state["mode"] = "manual"
-            state["activeRoad"] = int(road)
+            state["activeRoad"] = max(0, min(3, road_idx))
             state["phase"] = 0
             state["remainingSeconds"] = 999
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.do_cors()
             self.end_headers()
-            self.wfile.write(json.dumps({"status": "success", "mode": "manual", "road": road}).encode('utf-8'))
+            self.wfile.write(json.dumps({"status": "queued", "target_road": road}).encode('utf-8'))
             return
 
-        elif parsed.path == '/api/emergency':
-            state["mode"] = "emergency"
+        elif parsed.path in ['/api/emergency', '/api/mode']:
+            mode_val = data.get('mode', 'all_red')
+            state["mode"] = "all_red" if mode_val in ["all_red", "emergency"] else mode_val
+            if state["mode"] == "auto":
+                state["phase"] = 0
+                state["remainingSeconds"] = state["greenTime"]
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.do_cors()
             self.end_headers()
-            self.wfile.write(json.dumps({"status": "emergency_activated"}).encode('utf-8'))
+            self.wfile.write(json.dumps({"status": "ok", "mode": state["mode"]}).encode('utf-8'))
             return
 
         elif parsed.path == '/api/resume':
@@ -150,15 +172,20 @@ class TrafficDevHandler(SimpleHTTPRequestHandler):
             return
 
         elif parsed.path == '/api/settings':
-            if 'greenTime' in data:
-                state["greenTime"] = int(data['greenTime'])
-            if 'yellowTime' in data:
-                state["yellowTime"] = int(data['yellowTime'])
+            for k in ['green', 'greenTime']:
+                if k in data:
+                    state["greenTime"] = int(data[k])
+            for k in ['yellow', 'yellowTime']:
+                if k in data:
+                    state["yellowTime"] = int(data[k])
+            for k in ['clearance', 'clearanceTime']:
+                if k in data:
+                    state["clearanceTime"] = int(data[k])
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.do_cors()
             self.end_headers()
-            self.wfile.write(json.dumps({"status": "settings_updated"}).encode('utf-8'))
+            self.wfile.write(json.dumps({"status": "updated"}).encode('utf-8'))
             return
 
         self.send_response(404)

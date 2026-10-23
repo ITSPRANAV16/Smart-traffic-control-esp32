@@ -2072,7 +2072,7 @@
       fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: newMode })
+        body: JSON.stringify({ mode: newMode === 'emergency' ? 'all_red' : newMode })
       }).catch(() => {});
     }
 
@@ -2109,7 +2109,7 @@
       fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ road: targetRoad })
+        body: JSON.stringify({ road: targetRoad + 1 })
       }).catch(() => {});
     }
 
@@ -2253,7 +2253,7 @@
       fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ greenTime: g, yellowTime: y })
+        body: JSON.stringify({ green: g, yellow: y, greenTime: g, yellowTime: y })
       }).catch(() => {});
     }
 
