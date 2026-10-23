@@ -1,0 +1,2288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Smart City Traffic SCADA Command Cockpit | ESP32</title>
+  <meta name="theme-color" content="#0a192f">
+  <style>
+    /* ==========================================================================
+       NEXT-GEN SMART CITY TRAFFIC SCADA COCKPIT (WHITE & NAVY BLUE THEME)
+       CINEMATIC FULL-SCREEN INTERACTIVE INTERSECTION - ZERO DIV SECTIONS
+       ========================================================================== */
+    :root {
+      --navy-950: #040914;
+      --navy-900: #0a192f;
+      --navy-850: #0f2342;
+      --navy-800: #162c4e;
+      --navy-700: #1e3f76;
+      --navy-600: #2563eb;
+      --navy-500: #3b82f6;
+
+      --white-pure: #ffffff;
+      --glass-white: rgba(255, 255, 255, 0.95);
+      --glass-border: rgba(255, 255, 255, 0.7);
+      --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.1);
+
+      /* Optical Signal Chromatics */
+      --signal-red: #ef4444;
+      --signal-red-glow: 0 0 20px rgba(239, 68, 68, 0.9), 0 0 40px rgba(239, 68, 68, 0.4);
+      --signal-yellow: #f59e0b;
+      --signal-yellow-glow: 0 0 20px rgba(245, 158, 11, 0.9), 0 0 40px rgba(245, 158, 11, 0.4);
+      --signal-green: #10b981;
+      --signal-green-glow: 0 0 20px rgba(16, 185, 129, 0.9), 0 0 40px rgba(16, 185, 129, 0.4);
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--navy-950);
+      color: #1e293b;
+      user-select: none;
+    }
+
+    /* ==========================================================================
+       SCADA SYSTEM BOOT LOADING OVERLAY (SMOOTH INITIALIZATION)
+       ========================================================================== */
+    .scada-boot-loader {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, #0f2342 0%, #0a192f 70%, #040914 100%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .scada-boot-loader.loaded {
+      opacity: 0;
+      transform: scale(1.03);
+      pointer-events: none;
+    }
+
+    .loader-optic-ring {
+      position: relative;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      border: 3px solid rgba(56, 189, 248, 0.2);
+      border-top-color: #38bdf8;
+      border-right-color: #10b981;
+      animation: loaderSpin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
+    }
+    @keyframes loaderSpin {
+      100% { transform: rotate(360deg); }
+    }
+    .loader-center-bulb {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #0a192f;
+      border: 2px solid #38bdf8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #38bdf8;
+    }
+
+    .loader-title {
+      font-size: 1.25rem;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      color: #ffffff;
+      text-shadow: 0 0 16px rgba(56, 189, 248, 0.6);
+      text-align: center;
+    }
+    .loader-subtitle {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #94a3b8;
+      letter-spacing: 0.8px;
+      text-align: center;
+    }
+
+    .loader-bar-track {
+      width: 320px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      position: relative;
+    }
+    .loader-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #38bdf8, #10b981);
+      border-radius: var(--radius-full);
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.8);
+      transition: width 0.15s ease-out;
+    }
+    .loader-log-line {
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 0.7rem;
+      color: #38bdf8;
+      height: 16px;
+    }
+
+    /* Main Fullscreen Cockpit Container */
+    .scada-viewport {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      max-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: radial-gradient(circle at 50% 50%, #112240 0%, #0a192f 60%, #040914 100%);
+      overflow: hidden;
+    }
+
+    .scada-viewport::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ==========================================================================
+       TOP FLOATING GLASS SCADA COMMAND BAR
+       ========================================================================== */
+    .top-glass-bar {
+      position: relative;
+      z-index: 100;
+      margin: 8px 14px 0 14px;
+      padding: 7px 18px;
+      background: var(--glass-white);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1.5px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--glass-shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-badge-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #0a192f, #1e3f76);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #38bdf8;
+      box-shadow: 0 4px 12px rgba(10, 25, 47, 0.3);
+      position: relative;
+    }
+    .pulse-live-dot {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 10px;
+      height: 10px;
+      background: #10b981;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      animation: pulsePing 2s infinite;
+    }
+    @keyframes pulsePing {
+      0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8); }
+      70% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .brand-info h1 {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: var(--navy-900);
+      letter-spacing: 0.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-info p {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #64748b;
+    }
+    .ver-chip {
+      background: #0a192f;
+      color: #38bdf8;
+      font-size: 0.62rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: var(--radius-full);
+    }
+    .team-credit-tag {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #ffffff;
+      font-size: 0.62rem;
+      font-weight: 900;
+      padding: 2px 9px;
+      border-radius: var(--radius-full);
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+    }
+    .team-signature-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #0a192f;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      letter-spacing: 0.3px;
+    }
+    .team-signature-pill strong {
+      color: #0284c7;
+    }
+
+    /* Segmented Mode Switcher */
+    .mode-deck {
+      display: flex;
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: var(--radius-full);
+      gap: 3px;
+    }
+    .mode-btn {
+      border: none;
+      background: transparent;
+      padding: 7px 16px;
+      border-radius: var(--radius-full);
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: #475569;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mode-btn:hover { color: var(--navy-900); }
+    .mode-btn.active-auto {
+      background: #0a192f;
+      color: #ffffff;
+      box-shadow: 0 2px 10px rgba(10, 25, 47, 0.3);
+    }
+    .mode-btn.active-auto svg { color: #38bdf8; }
+
+    .mode-btn.active-manual {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+    }
+
+    .mode-btn.active-emergency {
+      background: #ef4444;
+      color: #ffffff;
+      box-shadow: 0 2px 10px rgba(239, 68, 68, 0.4);
+      animation: emergencyPulse 1.5s infinite;
+    }
+    @keyframes emergencyPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.82; }
+    }
+
+    /* Top Controls */
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .action-btn {
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: var(--navy-900);
+      padding: 7px 12px;
+      border-radius: var(--radius-md);
+      font-size: 0.78rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .action-btn:hover {
+      background: #e2e8f0;
+      transform: translateY(-1px);
+    }
+    .btn-vip {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+    }
+    .btn-vip:hover {
+      background: #ef4444;
+      color: #ffffff;
+      border-color: #dc2626;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    /* Hardware Link Status Pill in Header */
+    .btn-link-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 0.78rem;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn-link-status:hover {
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+      transform: translateY(-1px);
+    }
+    .status-dot-indicator {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #94a3b8;
+      transition: all 0.3s;
+    }
+    .status-dot-online {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulsePing 2s infinite;
+    }
+    .status-dot-offline {
+      background: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+    }
+    .link-latency-tag {
+      font-size: 0.65rem;
+      font-family: monospace;
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+      background: #f1f5f9;
+      color: #64748b;
+      transition: all 0.2s;
+    }
+    .link-latency-tag.online {
+      background: #ecfdf5;
+      color: #059669;
+    }
+
+    .btn-audio {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #64748b;
+      transition: all 0.2s;
+    }
+    .btn-audio.active {
+      color: #0284c7;
+      border-color: #38bdf8;
+      background: #f0f9ff;
+    }
+    .btn-audio.muted {
+      color: #94a3b8;
+      border-color: #e2e8f0;
+      background: #f8fafc;
+    }
+
+    /* ==========================================================================
+       CINEMATIC 4-WAY INTERSECTION HERO CANVAS & CORNER CONSOLES
+       ========================================================================== */
+    .cockpit-stage {
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 14px;
+    }
+
+    .intersection-theater {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-height: 100%;
+      max-width: 1060px;
+      aspect-ratio: 16 / 9.8;
+      margin: auto;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      background: #09121f;
+    }
+
+    #trafficCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* --------------------------------------------------------------------------
+       CENTRAL HOLOGRAPHIC SCADA HUB
+       -------------------------------------------------------------------------- */
+    .scada-center-hub {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: rgba(10, 25, 47, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 2px solid rgba(56, 189, 248, 0.5);
+      box-shadow: 0 0 35px rgba(2, 132, 199, 0.3), inset 0 0 20px rgba(2, 132, 199, 0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 40;
+      pointer-events: none;
+      color: #ffffff;
+    }
+
+    .radar-sweep-fan {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0deg, rgba(56, 189, 248, 0.25) 300deg, rgba(56, 189, 248, 0.8) 360deg);
+      animation: radarSpin 4s linear infinite;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+    @keyframes radarSpin {
+      100% { transform: rotate(360deg); }
+    }
+
+    .hub-circular-svg {
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      transform: rotate(-90deg);
+    }
+    .hub-track {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.12);
+      stroke-width: 5;
+    }
+    .hub-meter {
+      fill: none;
+      stroke: #10b981;
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-dasharray: 380;
+      stroke-dashoffset: 0;
+      transition: stroke 0.3s ease;
+    }
+
+    .hub-telemetry {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .hub-phase-title {
+      font-size: 0.58rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #38bdf8;
+      transition: color 0.3s;
+    }
+    .hub-countdown {
+      font-family: "SF Mono", Consolas, "Courier New", monospace;
+      font-size: 2.3rem;
+      font-weight: 900;
+      line-height: 1;
+      color: #ffffff;
+      text-shadow: 0 0 14px rgba(56, 189, 248, 0.7);
+    }
+    .hub-current-road {
+      font-size: 0.62rem;
+      font-weight: 800;
+      color: #e2e8f0;
+      margin-top: 2px;
+    }
+
+    /* --------------------------------------------------------------------------
+       4 CORNER CONTROL CONSOLES
+       -------------------------------------------------------------------------- */
+    .corner-console {
+      position: absolute;
+      z-index: 35;
+      background: var(--glass-white);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1.5px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--glass-shadow);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+    .corner-console:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+      border-color: #38bdf8;
+    }
+
+    .console-top-left { top: 14px; left: 14px; }
+    .console-top-right { top: 14px; right: 14px; }
+    .console-bottom-right { bottom: 14px; right: 14px; }
+    .console-bottom-left { bottom: 14px; left: 14px; }
+
+    /* 3D Traffic Light Head inside Console */
+    .optic-housing-3d {
+      background: linear-gradient(145deg, #182232, #0d1522);
+      padding: 5px 6px;
+      border-radius: 18px;
+      border: 1.5px solid #334155;
+      box-shadow: inset 0 2px 4px rgba(255,255,255,0.1), 0 4px 10px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .optic-lens {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #1e293b;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.25s ease;
+    }
+    .optic-lens::before {
+      content: "";
+      position: absolute;
+      top: -2px;
+      left: 10%;
+      width: 80%;
+      height: 4px;
+      background: #0f172a;
+      border-radius: 3px 3px 0 0;
+      opacity: 0.9;
+    }
+    .optic-lens::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border-radius: 50%;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+
+    .lens-red.active { background: var(--signal-red); box-shadow: var(--signal-red-glow); }
+    .lens-yellow.active { background: var(--signal-yellow); box-shadow: var(--signal-yellow-glow); }
+    .lens-green.active { background: var(--signal-green); box-shadow: var(--signal-green-glow); }
+
+    .console-details { display: flex; flex-direction: column; gap: 2px; }
+    .console-header { display: flex; align-items: center; gap: 6px; }
+    .console-title { font-size: 0.85rem; font-weight: 900; color: var(--navy-900); }
+    .gpio-pill {
+      font-size: 0.62rem;
+      font-weight: 800;
+      color: #64748b;
+      background: #f1f5f9;
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+    }
+    .console-status-line { font-size: 0.72rem; font-weight: 800; display: flex; align-items: center; gap: 4px; }
+    .status-green-txt { color: #059669; }
+    .status-yellow-txt { color: #d97706; }
+    .status-red-txt { color: #dc2626; }
+
+    .btn-console-go {
+      border: none;
+      background: #0a192f;
+      color: #ffffff;
+      padding: 6px 12px;
+      border-radius: var(--radius-md);
+      font-size: 0.72rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 6px rgba(10, 25, 47, 0.2);
+    }
+    .btn-console-go:hover { background: #2563eb; transform: translateY(-1px); }
+
+    .corner-console.active-green-console {
+      border-color: #10b981;
+      background: #ffffff;
+      box-shadow: 0 0 24px rgba(16, 185, 129, 0.4);
+    }
+    .corner-console.active-green-console .btn-console-go {
+      background: #10b981;
+      cursor: default;
+    }
+
+    /* ==========================================================================
+       BOTTOM FLOATING GLASS SCADA TELEMETRY RIBBON
+       ========================================================================== */
+    .bottom-glass-ribbon {
+      position: relative;
+      z-index: 100;
+      margin: 0 14px 6px 14px;
+      padding: 6px 16px;
+      background: var(--glass-white);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1.5px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--glass-shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .telemetry-group { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .telemetry-item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; }
+    .item-label { font-size: 0.68rem; font-weight: 800; color: #64748b; letter-spacing: 0.4px; }
+    .item-val { font-weight: 900; color: var(--navy-900); font-family: "SF Mono", Consolas, monospace; }
+    .badge-live-tag {
+      background: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+      padding: 1px 7px;
+      border-radius: var(--radius-full);
+      font-size: 0.68rem;
+      font-weight: 800;
+    }
+
+    .scada-stream-ticker {
+      flex: 1;
+      min-width: 260px;
+      max-width: 440px;
+      background: #0a192f;
+      color: #38bdf8;
+      padding: 5px 14px;
+      border-radius: var(--radius-full);
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 0.72rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ticker-lead { color: #10b981; font-weight: 900; }
+
+    .interlock-badge { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 800; color: #334155; }
+    .interlock-badge svg { color: #10b981; }
+
+    /* ==========================================================================
+       SMOOTH SLIDE-IN TOAST NOTIFICATIONS
+       ========================================================================== */
+    .scada-toast-container {
+      position: fixed;
+      bottom: 60px;
+      right: 24px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .scada-toast {
+      background: var(--glass-white);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1.5px solid var(--glass-border);
+      color: var(--navy-900);
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      font-weight: 800;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: toastSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transition: all 0.3s ease;
+      pointer-events: auto;
+    }
+    @keyframes toastSlideIn {
+      0% { transform: translateX(50px); opacity: 0; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+    .toast-icon-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    /* ==========================================================================
+       MODALS: SETTINGS & HARDWARE CONNECTION CENTER
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 9, 20, 0.68);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-panel {
+      background: #ffffff;
+      border-radius: 22px;
+      width: 100%;
+      max-width: 520px;
+      padding: 24px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: modalPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes modalPop {
+      0% { transform: scale(0.92); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; }
+    .modal-head h2 { font-size: 1.15rem; font-weight: 900; color: var(--navy-900); display: flex; align-items: center; gap: 8px; }
+    .modal-close {
+      background: #f1f5f9;
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: #64748b;
+      transition: all 0.2s;
+    }
+    .modal-close:hover { background: #e2e8f0; color: #0a192f; }
+
+    /* Hardware Connection Center Styles */
+    .conn-status-card {
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      transition: all 0.3s;
+    }
+    .conn-status-card.is-online {
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border-color: #86efac;
+    }
+    .conn-status-card.is-offline {
+      background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
+      border-color: #fca5a5;
+    }
+    .conn-headline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .conn-title-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      font-weight: 900;
+    }
+    .conn-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
+      font-size: 0.75rem;
+    }
+    .conn-meta-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(0,0,0,0.05);
+    }
+    .conn-meta-item span:first-child { color: #64748b; font-weight: 700; }
+    .conn-meta-item span:last-child { color: var(--navy-900); font-weight: 900; font-family: monospace; }
+
+    .ip-input-box {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ip-input-label {
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: #334155;
+      display: flex;
+      justify-content: space-between;
+    }
+    .input-field {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: var(--radius-md);
+      font-size: 0.9rem;
+      font-family: monospace;
+      font-weight: 700;
+      color: var(--navy-900);
+      outline: none;
+      transition: all 0.2s;
+    }
+    .input-field:focus {
+      border-color: #0284c7;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    }
+    .quick-ip-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .btn-quick-ip {
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-quick-ip:hover { background: #e2e8f0; }
+
+    .btn-primary-action {
+      background: #0a192f;
+      color: #ffffff;
+      border: none;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      font-size: 0.88rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn-primary-action:hover { background: #2563eb; transform: translateY(-1px); }
+
+    .guide-steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: #475569;
+      background: #f8fafc;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid #e2e8f0;
+    }
+    .guide-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .step-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #0a192f;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    /* Timings Presets */
+    .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .preset-chip-btn {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 8px;
+      border-radius: var(--radius-md);
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--navy-900);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .preset-chip-btn:hover { background: #e2e8f0; }
+    .slider-row { display: flex; flex-direction: column; gap: 6px; }
+    .slider-meta { display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 800; color: #334155; }
+    .slider-meta span:last-child { color: #0284c7; font-family: monospace; font-size: 0.95rem; }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #0284c7;
+      height: 6px;
+      border-radius: 3px;
+      background: #e2e8f0;
+      outline: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .top-glass-bar, .bottom-glass-ribbon { margin: 8px 10px; padding: 8px 14px; }
+      .brand-info h1 { font-size: 0.95rem; }
+      .corner-console { padding: 8px 10px; gap: 8px; }
+      .console-title { font-size: 0.75rem; }
+      .btn-console-go { padding: 4px 8px; font-size: 0.65rem; }
+      .scada-stream-ticker { display: none; }
+      .scada-center-hub { width: 110px; height: 110px; }
+      .hub-circular-svg { width: 100px; height: 100px; }
+      .hub-countdown { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ======================================================================
+       SCADA SYSTEM BOOT LOADING OVERLAY
+       ====================================================================== -->
+  <div class="scada-boot-loader" id="bootLoader">
+    <div class="loader-optic-ring">
+      <div class="loader-center-bulb">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+      <h2 class="loader-title">SMART TRAFFIC SCADA COMMAND</h2>
+      <p class="loader-subtitle">B.TECH ADEC LAB • DESIGN BY TEAM ALPHA</p>
+    </div>
+    <div class="loader-bar-track">
+      <div class="loader-bar-fill" id="loaderFill"></div>
+    </div>
+    <div class="loader-log-line" id="loaderLog">Initializing 60 FPS graphics engine...</div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="scada-toast-container" id="toastContainer"></div>
+
+  <div class="scada-viewport">
+
+    <!-- ======================================================================
+         TOP FLOATING GLASS SCADA COMMAND BAR
+         ====================================================================== -->
+    <header class="top-glass-bar">
+      
+      <!-- Brand & ESP32 Node Status -->
+      <div class="brand-section">
+        <div class="brand-badge-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="7" y="2" width="10" height="20" rx="3" />
+            <circle cx="12" cy="7" r="1.5" fill="currentColor" />
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+            <circle cx="12" cy="17" r="1.5" fill="currentColor" />
+          </svg>
+          <div class="pulse-live-dot" id="headerLiveDot"></div>
+        </div>
+        <div class="brand-info">
+          <h1>SMART TRAFFIC SCADA <span class="ver-chip">PRO v3.0</span> <span class="team-credit-tag">⚡ DESIGN BY TEAM ALPHA</span></h1>
+          <p id="topConnectionStatus">ESP32 DIRECT NODE: 192.168.4.1 • NON-BLOCKING MILLIS</p>
+        </div>
+      </div>
+
+      <!-- Segmented Mode Control Deck -->
+      <div class="mode-deck">
+        <button class="mode-btn active-auto" id="btnModeAuto" onclick="setMode('auto')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          AUTO CYCLE
+        </button>
+        <button class="mode-btn" id="btnModeManual" onclick="setMode('manual')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+          MANUAL OVERRIDE
+        </button>
+        <button class="mode-btn" id="btnModeEmergency" onclick="setMode('emergency')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/></svg>
+          ALL-RED LOCK
+        </button>
+      </div>
+
+      <!-- Quick Action Deck -->
+      <div class="top-actions">
+        <!-- ESP32 Live Connection Status Pill (Opens Hardware Connection Center) -->
+        <button class="btn-link-status" id="btnLinkStatus" onclick="openConnectionModal()" title="Click to view ESP32 Connection & Diagnostics">
+          <span class="status-dot-indicator status-dot-offline" id="linkDot"></span>
+          <span id="linkStatusText">ESP32 OFFLINE</span>
+          <span class="link-latency-tag" id="linkLatencyTag">SIMULATOR</span>
+        </button>
+
+        <!-- Emergency VIP Ambulance Wave -->
+        <button class="action-btn btn-vip" onclick="triggerAmbulanceCorridor()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v9c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+          VIP CORRIDOR
+        </button>
+
+        <!-- Audio Beep SFX Synthesizer Toggle -->
+        <button class="btn-audio muted" id="btnAudioToggle" onclick="toggleAudio()" title="Toggle Sound FX (Mute / Unmute)">
+          <svg id="audioIconOn" style="display:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <svg id="audioIconOff" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+        </button>
+
+        <!-- Config Timings -->
+        <button class="action-btn" onclick="openSettings()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          TIMINGS
+        </button>
+      </div>
+
+    </header>
+
+    <!-- ======================================================================
+         CENTER CINEMATIC INTERSECTION THEATER + 4 CORNER CONSOLES
+         ====================================================================== -->
+    <main class="cockpit-stage">
+      <div class="intersection-theater">
+
+        <!-- Animated Canvas (Traffic Movement, Roads, Induction Sensors, Open Lanes) -->
+        <canvas id="trafficCanvas" width="1200" height="750"></canvas>
+
+        <!-- ------------------------------------------------------------------
+             CENTRAL HOLOGRAPHIC SCADA HUB
+             ------------------------------------------------------------------ -->
+        <div class="scada-center-hub">
+          <div class="radar-sweep-fan"></div>
+          
+          <svg class="hub-circular-svg" viewBox="0 0 140 140">
+            <circle class="hub-track" cx="70" cy="70" r="60" />
+            <circle class="hub-meter" id="hubMeterArc" cx="70" cy="70" r="60" />
+          </svg>
+
+          <div class="hub-telemetry">
+            <span class="hub-phase-title" id="hubPhaseTitle">GREEN FLOW</span>
+            <div class="hub-countdown" id="hubCountdown">10</div>
+            <div class="hub-current-road" id="hubCurrentRoad">ROAD 1 (NORTH)</div>
+          </div>
+        </div>
+
+        <!-- ------------------------------------------------------------------
+             CORNER 1 (TOP-LEFT): ROAD 1 (NORTH) CONSOLE
+             ------------------------------------------------------------------ -->
+        <div class="corner-console console-top-left" id="console0" onclick="requestRoadPriority(0)">
+          <div class="optic-housing-3d">
+            <div class="optic-lens lens-red" id="lens-r-0"></div>
+            <div class="optic-lens lens-yellow" id="lens-y-0"></div>
+            <div class="optic-lens lens-green active" id="lens-g-0"></div>
+          </div>
+          <div class="console-details">
+            <div class="console-header">
+              <span class="console-title">ROAD 1 (NORTH)</span>
+              <span class="gpio-pill">R:18 Y:19 G:21</span>
+            </div>
+            <div class="console-status-line status-green-txt" id="statusLine0">
+              <span>●</span> <span id="statusTxt0">GREEN ACTIVE (10s)</span>
+            </div>
+          </div>
+          <button class="btn-console-go" id="btnConsole0">PRIORITY</button>
+        </div>
+
+        <!-- ------------------------------------------------------------------
+             CORNER 2 (TOP-RIGHT): ROAD 2 (EAST) CONSOLE
+             ------------------------------------------------------------------ -->
+        <div class="corner-console console-top-right" id="console1" onclick="requestRoadPriority(1)">
+          <div class="optic-housing-3d">
+            <div class="optic-lens lens-red active" id="lens-r-1"></div>
+            <div class="optic-lens lens-yellow" id="lens-y-1"></div>
+            <div class="optic-lens lens-green" id="lens-g-1"></div>
+          </div>
+          <div class="console-details">
+            <div class="console-header">
+              <span class="console-title">ROAD 2 (EAST)</span>
+              <span class="gpio-pill">R:22 Y:23 G:2</span>
+            </div>
+            <div class="console-status-line status-red-txt" id="statusLine1">
+              <span>●</span> <span id="statusTxt1">STOPPED STANDBY</span>
+            </div>
+          </div>
+          <button class="btn-console-go" id="btnConsole1">PRIORITY</button>
+        </div>
+
+        <!-- ------------------------------------------------------------------
+             CORNER 3 (BOTTOM-RIGHT): ROAD 3 (SOUTH) CONSOLE
+             ------------------------------------------------------------------ -->
+        <div class="corner-console console-bottom-right" id="console2" onclick="requestRoadPriority(2)">
+          <div class="optic-housing-3d">
+            <div class="optic-lens lens-red active" id="lens-r-2"></div>
+            <div class="optic-lens lens-yellow" id="lens-y-2"></div>
+            <div class="optic-lens lens-green" id="lens-g-2"></div>
+          </div>
+          <div class="console-details">
+            <div class="console-header">
+              <span class="console-title">ROAD 3 (SOUTH)</span>
+              <span class="gpio-pill">R:26 Y:27 G:32</span>
+            </div>
+            <div class="console-status-line status-red-txt" id="statusLine2">
+              <span>●</span> <span id="statusTxt2">STOPPED STANDBY</span>
+            </div>
+          </div>
+          <button class="btn-console-go" id="btnConsole2">PRIORITY</button>
+        </div>
+
+        <!-- ------------------------------------------------------------------
+             CORNER 4 (BOTTOM-LEFT): ROAD 4 (WEST) CONSOLE
+             ------------------------------------------------------------------ -->
+        <div class="corner-console console-bottom-left" id="console3" onclick="requestRoadPriority(3)">
+          <div class="optic-housing-3d">
+            <div class="optic-lens lens-red active" id="lens-r-3"></div>
+            <div class="optic-lens lens-yellow" id="lens-y-3"></div>
+            <div class="optic-lens lens-green" id="lens-g-3"></div>
+          </div>
+          <div class="console-details">
+            <div class="console-header">
+              <span class="console-title">ROAD 4 (WEST)</span>
+              <span class="gpio-pill">R:4 Y:5 G:25</span>
+            </div>
+            <div class="console-status-line status-red-txt" id="statusLine3">
+              <span>●</span> <span id="statusTxt3">STOPPED STANDBY</span>
+            </div>
+          </div>
+          <button class="btn-console-go" id="btnConsole3">PRIORITY</button>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- ======================================================================
+         BOTTOM FLOATING GLASS SCADA TELEMETRY RIBBON
+         ====================================================================== -->
+    <footer class="bottom-glass-ribbon">
+      
+      <!-- Metrics -->
+      <div class="telemetry-group">
+        <div class="telemetry-item">
+          <span class="item-label">NODE:</span>
+          <span class="item-val">ESP32-WROOM</span>
+          <span class="badge-live-tag" id="liveModeBadge">AUTO ACTIVE</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="item-label">RAM:</span>
+          <span class="item-val" id="valHeap">218 KB</span>
+        </div>
+        <div class="telemetry-item">
+          <span class="item-label">THROUGHPUT:</span>
+          <span class="item-val" id="valVehiclesPassed">142</span>
+          <span style="font-size:0.68rem; color:#64748b; font-weight:800;">CARS</span>
+        </div>
+      </div>
+
+      <!-- Real-Time SCADA Event Stream Ticker -->
+      <div class="scada-stream-ticker">
+        <span class="ticker-lead">CMD &gt;</span>
+        <span id="tickerLogText">System initialized in Automatic Round-Robin mode. Fail-Safe interlock active.</span>
+      </div>
+
+      <!-- Interlock Safety Seal & Team Alpha Attribution -->
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div class="interlock-badge">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+          </svg>
+          <span>Safety Interlock Engaged</span>
+        </div>
+        <div class="team-signature-pill">
+          <span>⚡</span> DESIGN BY <strong>TEAM ALPHA</strong>
+        </div>
+      </div>
+
+    </footer>
+
+  </div>
+
+  <!-- ==========================================================================
+       ESP32 HARDWARE CONNECTION CENTER MODAL
+       ========================================================================== -->
+  <div class="modal-backdrop" id="connectionModal">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          ESP32 Hardware Connection Center
+        </h2>
+        <button class="modal-close" onclick="closeConnectionModal()">&times;</button>
+      </div>
+
+      <!-- Live Connectivity Status Card -->
+      <div class="conn-status-card is-offline" id="connStatusBox">
+        <div class="conn-headline">
+          <div class="conn-title-badge">
+            <span class="status-dot-indicator status-dot-offline" id="modalStatusDot"></span>
+            <span id="modalStatusTitle">ESP32 HARDWARE OFFLINE</span>
+          </div>
+          <span class="badge-live-tag" id="modalLatencyTag">SIMULATOR ACTIVE</span>
+        </div>
+
+        <div class="conn-meta-grid">
+          <div class="conn-meta-item">
+            <span>Hardware IP:</span>
+            <span id="metaIp">192.168.4.1</span>
+          </div>
+          <div class="conn-meta-item">
+            <span>Ping Roundtrip:</span>
+            <span id="metaPing">-- ms</span>
+          </div>
+          <div class="conn-meta-item">
+            <span>Connected Clients:</span>
+            <span id="metaClients">0 devices</span>
+          </div>
+          <div class="conn-meta-item">
+            <span>ESP32 Free Heap:</span>
+            <span id="metaHeap">-- KB</span>
+          </div>
+          <div class="conn-meta-item">
+            <span>System Uptime:</span>
+            <span id="metaUptime">-- s</span>
+          </div>
+          <div class="conn-meta-item">
+            <span>Safety Interlock:</span>
+            <span style="color:#059669;">ENGAGED</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Target URL / IP Input -->
+      <div class="ip-input-box">
+        <div class="ip-input-label">
+          <span>Target ESP32 URL / IP Address:</span>
+          <span style="color:#64748b; font-size:0.7rem;">Default SoftAP: 192.168.4.1</span>
+        </div>
+        <input type="text" class="input-field" id="targetIpInput" placeholder="http://192.168.4.1" value="http://192.168.4.1">
+        
+        <div class="quick-ip-row">
+          <button class="btn-quick-ip" onclick="setTargetIpPreset('http://192.168.4.1')">📍 SoftAP (192.168.4.1)</button>
+          <button class="btn-quick-ip" onclick="setTargetIpPreset('')">🌐 Auto / Relative (/)</button>
+          <button class="btn-quick-ip" onclick="setTargetIpPreset('http://localhost')">💻 Localhost</button>
+        </div>
+      </div>
+
+      <button class="btn-primary-action" id="btnTestPing" onclick="testPingNow()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        <span>Test Link &amp; Ping Hardware Now</span>
+      </button>
+
+      <!-- 3-Step Hardware Connection Guide -->
+      <div class="guide-steps-list">
+        <div style="font-weight:800; color:var(--navy-900); margin-bottom:2px;">📱 Quick Setup Guide / कनेक्शन कसे करावे:</div>
+        <div class="guide-step">
+          <div class="step-num">1</div>
+          <span><strong>Power ESP32:</strong> Plug your ESP32 board into USB power (Red power LED turns ON).</span>
+        </div>
+        <div class="guide-step">
+          <div class="step-num">2</div>
+          <span><strong>Connect Wi-Fi:</strong> On your PC/Mobile Wi-Fi, join <strong>TrafficLight-ESP32</strong> (Password: <strong>Traffic123</strong>).</span>
+        </div>
+        <div class="guide-step">
+          <div class="step-num">3</div>
+          <span><strong>Synchronize:</strong> Click <strong>"Test Link & Ping"</strong> above or open <strong>http://192.168.4.1</strong> directly!</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       CONFIG & TIMINGS MODAL
+       ========================================================================== -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Traffic Phase Timing Config
+        </h2>
+        <button class="modal-close" onclick="closeSettings()">&times;</button>
+      </div>
+
+      <div>
+        <p style="font-size:0.75rem; font-weight:800; color:#64748b; margin-bottom:8px;">QUICK CITY PRESETS</p>
+        <div class="preset-grid">
+          <button class="preset-chip-btn" onclick="applyPreset(10, 2)">🚗 Normal (10s G / 2s Y)</button>
+          <button class="preset-chip-btn" onclick="applyPreset(20, 3)">⚡ Peak Rush (20s G / 3s Y)</button>
+          <button class="preset-chip-btn" onclick="applyPreset(5, 2)">🌙 Late Night (5s G / 2s Y)</button>
+          <button class="preset-chip-btn" onclick="applyPreset(15, 3)">🌧️ Rainy Weather (15s G / 3s Y)</button>
+        </div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-meta">
+          <span>Green Phase Duration:</span>
+          <span id="valGreenDisp">10s</span>
+        </div>
+        <input type="range" id="inputGreenTime" min="3" max="60" value="10" oninput="document.getElementById('valGreenDisp').innerText = this.value + 's'">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-meta">
+          <span>Yellow Clearance Duration:</span>
+          <span id="valYellowDisp">2s</span>
+        </div>
+        <input type="range" id="inputYellowTime" min="1" max="10" value="2" oninput="document.getElementById('valYellowDisp').innerText = this.value + 's'">
+      </div>
+
+      <button class="btn-primary-action" onclick="saveSettings()">Save &amp; Upload to ESP32</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       SCADA CLIENT LOGIC, CONNECTIVITY MANAGER & VEHICLE SIMULATION
+       ========================================================================== -->
+  <script>
+    // --------------------------------------------------------------------------
+    // 1. SYSTEM INITIALIZATION & BOOT LOADER
+    // --------------------------------------------------------------------------
+    const bootSteps = [
+      { text: "Loading 60 FPS vector canvas engine...", pct: 25 },
+      { text: "Probing hardware node @ 192.168.4.1...", pct: 55 },
+      { text: "Engaging hardware interlock safety matrix...", pct: 85 },
+      { text: "System fully online & synchronized!", pct: 100 }
+    ];
+
+    let bootIdx = 0;
+    const loaderFill = document.getElementById('loaderFill');
+    const loaderLog = document.getElementById('loaderLog');
+
+    const bootTimer = setInterval(() => {
+      if (bootIdx < bootSteps.length) {
+        loaderFill.style.width = bootSteps[bootIdx].pct + '%';
+        loaderLog.innerText = bootSteps[bootIdx].text;
+        bootIdx++;
+      } else {
+        clearInterval(bootTimer);
+        setTimeout(() => {
+          document.getElementById('bootLoader').classList.add('loaded');
+          showToast("SCADA Cockpit Initialized. Fail-Safe Interlock Active.", "#10b981");
+        }, 300);
+      }
+    }, 280);
+
+    // Toast Notification System
+    function showToast(message, color = '#10b981') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'scada-toast';
+      toast.innerHTML = `<span class="toast-icon-dot" style="background:${color}; box-shadow:0 0 8px ${color};"></span><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    // --------------------------------------------------------------------------
+    // 2. SYSTEM STATE
+    // --------------------------------------------------------------------------
+    let appState = {
+      mode: 'auto',              // 'auto' | 'manual' | 'emergency'
+      activeRoad: 0,             // 0=North, 1=East, 2=South, 3=West
+      phase: 0,                  // 0=GREEN, 1=YELLOW, 2=CLEARANCE
+      remainingSeconds: 10,
+      totalPhaseSeconds: 10,
+      greenTime: 10,
+      yellowTime: 2,
+      clearanceTime: 1,
+      pendingRoad: -1,
+      isHardwareConnected: false,
+      targetBaseUrl: localStorage.getItem('esp32_target_ip') !== null ? localStorage.getItem('esp32_target_ip') : (window.location.protocol.startsWith('http') ? '' : 'http://192.168.4.1'),
+      lastPingMs: 0,
+      consecutiveFails: 0,
+      totalPassedVehicles: 142,
+      audioEnabled: localStorage.getItem('scada_audio_enabled') === 'true', // Defaults to false (MUTED) unless explicitly enabled
+      lastTickTime: Date.now()
+    };
+
+    const ROAD_NAMES = ['ROAD 1 (NORTH)', 'ROAD 2 (EAST)', 'ROAD 3 (SOUTH)', 'ROAD 4 (WEST)'];
+    document.getElementById('targetIpInput').value = appState.targetBaseUrl || 'http://192.168.4.1';
+
+    // --------------------------------------------------------------------------
+    // 3. WEBAUDIO HIGH-TECH SOUND SYNTHESIZER (100% HARD-MUTE GUARANTEED)
+    // --------------------------------------------------------------------------
+    let audioCtx = null;
+    let masterGainNode = null;
+
+    function getAudioContext() {
+      if (!appState.audioEnabled) return null;
+      if (!audioCtx) {
+        const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtxClass) return null;
+        try {
+          audioCtx = new AudioCtxClass();
+          masterGainNode = audioCtx.createGain();
+          masterGainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
+          masterGainNode.connect(audioCtx.destination);
+        } catch (e) {
+          return null;
+        }
+      }
+      if (audioCtx.state === 'suspended' && appState.audioEnabled) {
+        audioCtx.resume().catch(() => {});
+      }
+      return audioCtx;
+    }
+
+    function playBeep(freq, duration, type = 'sine', volume = 0.08) {
+      // 100% STRICT HARD SILENCE GUARD
+      if (!appState.audioEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx || !masterGainNode || !appState.audioEnabled || ctx.state === 'suspended') return;
+        
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(volume, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(masterGainNode);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function setAudioState(enabled, showFeedback = true) {
+      appState.audioEnabled = !!enabled;
+      try {
+        localStorage.setItem('scada_audio_enabled', appState.audioEnabled ? 'true' : 'false');
+      } catch (e) {}
+      
+      const btn = document.getElementById('btnAudioToggle');
+      const iconOn = document.getElementById('audioIconOn');
+      const iconOff = document.getElementById('audioIconOff');
+      
+      if (btn) {
+        btn.classList.toggle('active', appState.audioEnabled);
+        btn.classList.toggle('muted', !appState.audioEnabled);
+        btn.title = appState.audioEnabled ? "Sound FX: ACTIVE (Click to Mute)" : "Sound FX: MUTED (Click to Enable Sound)";
+      }
+      if (iconOn) iconOn.style.display = appState.audioEnabled ? 'block' : 'none';
+      if (iconOff) iconOff.style.display = appState.audioEnabled ? 'none' : 'block';
+
+      if (!appState.audioEnabled) {
+        // INSTANT HARD SILENCE: Silence master gain node & suspend context
+        if (masterGainNode && audioCtx) {
+          try {
+            masterGainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+            masterGainNode.gain.setValueAtTime(0.0, audioCtx.currentTime);
+          } catch(e) {}
+        }
+        if (audioCtx && audioCtx.state === 'running') {
+          try {
+            audioCtx.suspend();
+          } catch(e) {}
+        }
+        if (showFeedback) {
+          showToast("Audio Synthesizer: 100% Muted (Silent)");
+        }
+      } else {
+        // UNMUTE: Resume audio context & restore gain
+        if (audioCtx && audioCtx.state === 'suspended') {
+          try {
+            audioCtx.resume();
+          } catch(e) {}
+        }
+        if (masterGainNode && audioCtx) {
+          try {
+            masterGainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+            masterGainNode.gain.setValueAtTime(1.0, audioCtx.currentTime);
+          } catch(e) {}
+        }
+        if (showFeedback) {
+          playBeep(880, 0.15, 'sine');
+          showToast("Audio Synthesizer: Sound FX Enabled");
+        }
+      }
+    }
+
+    function toggleAudio() {
+      setAudioState(!appState.audioEnabled, true);
+    }
+
+    // Cross-tab broadcast: when audio is muted in one tab, mute ALL open tabs immediately!
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'scada_audio_enabled') {
+        const isEnabled = e.newValue === 'true';
+        if (appState.audioEnabled !== isEnabled) {
+          setAudioState(isEnabled, false);
+        }
+      }
+    });
+
+    // --------------------------------------------------------------------------
+    // 4. BUTTERY 60 FPS DELTA-TIME VEHICLE PHYSICS ENGINE (CANVAS)
+    // --------------------------------------------------------------------------
+    const canvas = document.getElementById('trafficCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const CX = W / 2;
+    const CY = H / 2;
+    const ROAD_WIDTH = 150;
+    const LANE_HALF = ROAD_WIDTH / 4;
+
+    class Vehicle {
+      constructor(roadIndex) {
+        this.roadIndex = roadIndex;
+        this.length = 26 + Math.random() * 8;
+        this.width = 14;
+        this.color = ['#38bdf8', '#f8fafc', '#ef4444', '#f59e0b', '#a855f7', '#10b981'][Math.floor(Math.random() * 6)];
+        this.maxSpeed = 2.4 + Math.random() * 0.8;
+        this.currentSpeed = 0.8; // launch from rest
+        this.dist = 0;
+        this.isBraking = false;
+        this.passedIntersection = false;
+      }
+
+      update(isRoadGreen, queueAheadDist, dtScale) {
+        const stopLineDist = (this.roadIndex % 2 === 0 ? CY : CX) - (ROAD_WIDTH / 2) - 18;
+        let shouldStop = false;
+
+        if (!isRoadGreen && !this.passedIntersection) {
+          if (this.dist + this.currentSpeed >= queueAheadDist) {
+            shouldStop = true;
+            this.dist = queueAheadDist;
+          } else if (this.dist >= stopLineDist - 70) {
+            shouldStop = true;
+          }
+        }
+
+        const targetSpeed = shouldStop ? 0 : this.maxSpeed;
+        // Smooth exponential acceleration & deceleration
+        this.currentSpeed += (targetSpeed - this.currentSpeed) * (shouldStop ? 0.14 : 0.08) * dtScale;
+        if (this.currentSpeed < 0.02) this.currentSpeed = 0;
+
+        this.isBraking = shouldStop && (this.currentSpeed > 0.08);
+
+        if (!shouldStop || this.dist < queueAheadDist) {
+          this.dist += this.currentSpeed * dtScale;
+        }
+
+        const centerCrossing = (this.roadIndex % 2 === 0 ? CY : CX) - (ROAD_WIDTH / 2);
+        if (this.dist > centerCrossing && !this.passedIntersection) {
+          this.passedIntersection = true;
+          appState.totalPassedVehicles++;
+          document.getElementById('valVehiclesPassed').innerText = appState.totalPassedVehicles;
+        }
+      }
+    }
+
+    let vehicles = { 0: [], 1: [], 2: [], 3: [] };
+    let clickRipples = [];
+
+    function spawnVehicles() {
+      for (let r = 0; r < 4; r++) {
+        if (vehicles[r].length < 5 && Math.random() < 0.04) {
+          const v = new Vehicle(r);
+          const lastV = vehicles[r][vehicles[r].length - 1];
+          if (!lastV || lastV.dist > 55) {
+            vehicles[r].push(v);
+          }
+        }
+      }
+    }
+
+    let lastFrameTime = performance.now();
+
+    function renderTheater(now) {
+      const dt = Math.min(50, now - lastFrameTime);
+      const dtScale = dt / 16.666; // normalize to 60fps
+      lastFrameTime = now;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // 1. Asphalt Background
+      ctx.fillStyle = '#0a1322';
+      ctx.fillRect(0, 0, W, H);
+
+      // 2. Grassy / Pavement Corner Zones
+      ctx.fillStyle = '#060c18';
+      ctx.fillRect(0, 0, CX - ROAD_WIDTH / 2, CY - ROAD_WIDTH / 2);
+      ctx.fillRect(CX + ROAD_WIDTH / 2, 0, W - (CX + ROAD_WIDTH / 2), CY - ROAD_WIDTH / 2);
+      ctx.fillRect(CX + ROAD_WIDTH / 2, CY + ROAD_WIDTH / 2, W - (CX + ROAD_WIDTH / 2), H - (CY + ROAD_WIDTH / 2));
+      ctx.fillRect(0, CY + ROAD_WIDTH / 2, CX - ROAD_WIDTH / 2, H - (CY + ROAD_WIDTH / 2));
+
+      // 3. Main Asphalt Road Surfaces
+      ctx.fillStyle = '#111c2e';
+      ctx.fillRect(CX - ROAD_WIDTH / 2, 0, ROAD_WIDTH, H);
+      ctx.fillRect(0, CY - ROAD_WIDTH / 2, W, ROAD_WIDTH);
+
+      // 4. Curb Stone Borders
+      ctx.strokeStyle = '#2b3b55';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(0, 0, CX - ROAD_WIDTH / 2, CY - ROAD_WIDTH / 2);
+      ctx.strokeRect(CX + ROAD_WIDTH / 2, 0, W - (CX + ROAD_WIDTH / 2), CY - ROAD_WIDTH / 2);
+      ctx.strokeRect(CX + ROAD_WIDTH / 2, CY + ROAD_WIDTH / 2, W - (CX + ROAD_WIDTH / 2), H - (CY + ROAD_WIDTH / 2));
+      ctx.strokeRect(0, CY + ROAD_WIDTH / 2, CX - ROAD_WIDTH / 2, H - (CY + ROAD_WIDTH / 2));
+
+      // 5. Double Yellow Centerlines
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(CX - 2, 0); ctx.lineTo(CX - 2, CY - ROAD_WIDTH / 2 - 20);
+      ctx.moveTo(CX + 2, 0); ctx.lineTo(CX + 2, CY - ROAD_WIDTH / 2 - 20);
+      ctx.moveTo(CX - 2, CY + ROAD_WIDTH / 2 + 20); ctx.lineTo(CX - 2, H);
+      ctx.moveTo(CX + 2, CY + ROAD_WIDTH / 2 + 20); ctx.lineTo(CX + 2, H);
+      ctx.moveTo(0, CY - 2); ctx.lineTo(CX - ROAD_WIDTH / 2 - 20, CY - 2);
+      ctx.moveTo(0, CY + 2); ctx.lineTo(CX - ROAD_WIDTH / 2 - 20, CY + 2);
+      ctx.moveTo(CX + ROAD_WIDTH / 2 + 20, CY - 2); ctx.lineTo(W, CY - 2);
+      ctx.moveTo(CX + ROAD_WIDTH / 2 + 20, CY + 2); ctx.lineTo(W, CY + 2);
+      ctx.stroke();
+
+      // 6. Zebra Crosswalks
+      ctx.fillStyle = '#ffffff';
+      const stripeW = 7;
+      const stripeGap = 5;
+      for (let x = CX - ROAD_WIDTH / 2 + 4; x < CX + ROAD_WIDTH / 2 - 4; x += stripeW + stripeGap) {
+        ctx.fillRect(x, CY - ROAD_WIDTH / 2 - 16, stripeW, 14);
+        ctx.fillRect(x, CY + ROAD_WIDTH / 2 + 2, stripeW, 14);
+      }
+      for (let y = CY - ROAD_WIDTH / 2 + 4; y < CY + ROAD_WIDTH / 2 - 4; y += stripeW + stripeGap) {
+        ctx.fillRect(CX - ROAD_WIDTH / 2 - 16, y, 14, stripeW);
+        ctx.fillRect(CX + ROAD_WIDTH / 2 + 2, y, 14, stripeW);
+      }
+
+      // 7. Stop Line Lasers
+      for (let r = 0; r < 4; r++) {
+        const isGreen = (appState.activeRoad === r && appState.phase === 0);
+        ctx.strokeStyle = isGreen ? '#10b981' : '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = isGreen ? '#10b981' : '#ef4444';
+        ctx.shadowBlur = isGreen ? 12 : 4;
+        ctx.beginPath();
+        if (r === 0) {
+          ctx.moveTo(CX, CY - ROAD_WIDTH / 2 - 18);
+          ctx.lineTo(CX + ROAD_WIDTH / 2, CY - ROAD_WIDTH / 2 - 18);
+        } else if (r === 1) {
+          ctx.moveTo(CX + ROAD_WIDTH / 2 + 18, CY);
+          ctx.lineTo(CX + ROAD_WIDTH / 2 + 18, CY + ROAD_WIDTH / 2);
+        } else if (r === 2) {
+          ctx.moveTo(CX - ROAD_WIDTH / 2, CY + ROAD_WIDTH / 2 + 18);
+          ctx.lineTo(CX, CY + ROAD_WIDTH / 2 + 18);
+        } else if (r === 3) {
+          ctx.moveTo(CX - ROAD_WIDTH / 2 - 18, CY - ROAD_WIDTH / 2);
+          ctx.lineTo(CX - ROAD_WIDTH / 2 - 18, CY);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      // 8. Dynamic Vehicles
+      spawnVehicles();
+
+      for (let r = 0; r < 4; r++) {
+        const isGreen = (appState.activeRoad === r && appState.phase === 0);
+        const stopLineDist = (r % 2 === 0 ? CY : CX) - (ROAD_WIDTH / 2) - 22;
+        let queueDist = stopLineDist;
+
+        for (let i = 0; i < vehicles[r].length; i++) {
+          const v = vehicles[r][i];
+          v.update(isGreen, queueDist, dtScale);
+
+          if (v.currentSpeed === 0 || (!isGreen && v.dist <= stopLineDist)) {
+            queueDist = v.dist - v.length - 12;
+          }
+
+          ctx.save();
+          if (r === 0) {
+            drawCar(CX + LANE_HALF, v.dist, v.width, v.length, Math.PI / 2, v.color, v.isBraking);
+          } else if (r === 1) {
+            drawCar(W - v.dist, CY + LANE_HALF, v.width, v.length, Math.PI, v.color, v.isBraking);
+          } else if (r === 2) {
+            drawCar(CX - LANE_HALF, H - v.dist, v.width, v.length, -Math.PI / 2, v.color, v.isBraking);
+          } else if (r === 3) {
+            drawCar(v.dist, CY - LANE_HALF, v.width, v.length, 0, v.color, v.isBraking);
+          }
+          ctx.restore();
+        }
+
+        vehicles[r] = vehicles[r].filter(v => v.dist < (r % 2 === 0 ? H : W) + 60);
+      }
+
+      // 9. Interactive Click Waves / Ripples
+      for (let i = clickRipples.length - 1; i >= 0; i--) {
+        const rip = clickRipples[i];
+        rip.radius += 3 * dtScale;
+        rip.alpha -= 0.02 * dtScale;
+        if (rip.alpha <= 0) {
+          clickRipples.splice(i, 1);
+        } else {
+          ctx.strokeStyle = `rgba(56, 189, 248, ${rip.alpha})`;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      // 10. Sub-second continuous smooth progress arc for central radar dial
+      const elapsedSinceTick = (Date.now() - appState.lastTickTime) / 1000;
+      const smoothRemaining = Math.max(0, appState.remainingSeconds - elapsedSinceTick);
+      const totalSec = appState.totalPhaseSeconds || 10;
+      const progressFraction = Math.max(0, Math.min(1, smoothRemaining / totalSec));
+      
+      const meterArc = document.getElementById('hubMeterArc');
+      if (meterArc) {
+        meterArc.style.strokeDashoffset = 380 * (1 - progressFraction);
+      }
+
+      requestAnimationFrame(renderTheater);
+    }
+
+    function drawCar(x, y, w, l, angle, color, isBraking) {
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.beginPath();
+      ctx.roundRect(-l / 2 + 2, -w / 2 + 2, l, w, 4);
+      ctx.fill();
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(-l / 2, -w / 2, l, w, 4);
+      ctx.fill();
+
+      ctx.fillStyle = '#09121f';
+      ctx.fillRect(-l / 4, -w / 2 + 2.5, l / 2, w - 5);
+
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(l / 2 - 2, -w / 2 + 1, 2, 3);
+      ctx.fillRect(l / 2 - 2, w / 2 - 4, 2, 3);
+
+      ctx.fillStyle = isBraking ? '#ef4444' : '#7f1d1d';
+      if (isBraking) {
+        ctx.shadowColor = '#ef4444';
+        ctx.shadowBlur = 10;
+      }
+      ctx.fillRect(-l / 2, -w / 2 + 1, 2, 3);
+      ctx.fillRect(-l / 2, w / 2 - 4, 2, 3);
+      ctx.shadowBlur = 0;
+    }
+
+    requestAnimationFrame(renderTheater);
+
+    // --------------------------------------------------------------------------
+    // 5. COCKPIT CONTROLLER & UI SYNC
+    // --------------------------------------------------------------------------
+    function updateCockpitUI() {
+      const countdownEl = document.getElementById('hubCountdown');
+      const phaseTitleEl = document.getElementById('hubPhaseTitle');
+      const currentRoadEl = document.getElementById('hubCurrentRoad');
+      const meterArc = document.getElementById('hubMeterArc');
+
+      countdownEl.innerText = String(appState.remainingSeconds).padStart(2, '0');
+      currentRoadEl.innerText = ROAD_NAMES[appState.activeRoad];
+
+      if (appState.phase === 0) {
+        phaseTitleEl.innerText = 'GREEN FLOW';
+        phaseTitleEl.style.color = '#10b981';
+        meterArc.style.stroke = '#10b981';
+      } else if (appState.phase === 1) {
+        phaseTitleEl.innerText = 'YELLOW CLEARING';
+        phaseTitleEl.style.color = '#f59e0b';
+        meterArc.style.stroke = '#f59e0b';
+      } else {
+        phaseTitleEl.innerText = 'ALL-RED CLEARANCE';
+        phaseTitleEl.style.color = '#ef4444';
+        meterArc.style.stroke = '#ef4444';
+      }
+
+      if (appState.phase === 0 && appState.remainingSeconds <= 3 && appState.remainingSeconds > 0) {
+        playBeep(600, 0.08, 'sine');
+      } else if (appState.phase === 1) {
+        playBeep(450, 0.12, 'triangle');
+      }
+
+      // Corner Consoles Update
+      for (let r = 0; r < 4; r++) {
+        const consoleEl = document.getElementById('console' + r);
+        const lensR = document.getElementById('lens-r-' + r);
+        const lensY = document.getElementById('lens-y-' + r);
+        const lensG = document.getElementById('lens-g-' + r);
+        const statusLine = document.getElementById('statusLine' + r);
+        const statusTxt = document.getElementById('statusTxt' + r);
+        const btnConsole = document.getElementById('btnConsole' + r);
+
+        lensR.className = 'optic-lens lens-red';
+        lensY.className = 'optic-lens lens-yellow';
+        lensG.className = 'optic-lens lens-green';
+        consoleEl.classList.remove('active-green-console');
+
+        if (appState.mode === 'emergency') {
+          lensR.classList.add('active');
+          statusLine.className = 'console-status-line status-red-txt';
+          statusTxt.innerText = 'ALL-RED LOCKDOWN';
+          btnConsole.innerText = 'LOCKED';
+        } else if (r === appState.activeRoad) {
+          if (appState.phase === 0) {
+            lensG.classList.add('active');
+            consoleEl.classList.add('active-green-console');
+            statusLine.className = 'console-status-line status-green-txt';
+            statusTxt.innerText = `GREEN ACTIVE (${appState.remainingSeconds}s)`;
+            btnConsole.innerText = 'ACTIVE GO';
+          } else if (appState.phase === 1) {
+            lensY.classList.add('active');
+            statusLine.className = 'console-status-line status-yellow-txt';
+            statusTxt.innerText = 'YELLOW CLEARING';
+            btnConsole.innerText = 'CLEARING...';
+          } else {
+            lensR.classList.add('active');
+            statusLine.className = 'console-status-line status-red-txt';
+            statusTxt.innerText = 'INTERLOCK CLEAR';
+            btnConsole.innerText = 'SWITCHING';
+          }
+        } else {
+          lensR.classList.add('active');
+          statusLine.className = 'console-status-line status-red-txt';
+          statusTxt.innerText = 'STOPPED STANDBY';
+          btnConsole.innerText = 'PRIORITY';
+        }
+      }
+
+      document.getElementById('btnModeAuto').className = 'mode-btn ' + (appState.mode === 'auto' ? 'active-auto' : '');
+      document.getElementById('btnModeManual').className = 'mode-btn ' + (appState.mode === 'manual' ? 'active-manual' : '');
+      document.getElementById('btnModeEmergency').className = 'mode-btn ' + (appState.mode === 'emergency' ? 'active-emergency' : '');
+
+      document.getElementById('liveModeBadge').innerText = appState.mode.toUpperCase() + ' ACTIVE';
+    }
+
+    function addTickerLog(msg) {
+      const ticker = document.getElementById('tickerLogText');
+      const time = new Date().toLocaleTimeString();
+      ticker.innerText = `[${time}] ${msg}`;
+    }
+
+    // --------------------------------------------------------------------------
+    // 6. ESP32 HARDWARE CONNECTIVITY & HEARTBEAT ENGINE
+    // --------------------------------------------------------------------------
+    function updateConnectionStatusUI(isOnline, pingMs = 0, data = {}) {
+      appState.isHardwareConnected = isOnline;
+      const linkDot = document.getElementById('linkDot');
+      const linkText = document.getElementById('linkStatusText');
+      const linkLatency = document.getElementById('linkLatencyTag');
+      const topStatus = document.getElementById('topConnectionStatus');
+      
+      const connBox = document.getElementById('connStatusBox');
+      const modalDot = document.getElementById('modalStatusDot');
+      const modalTitle = document.getElementById('modalStatusTitle');
+      const modalTag = document.getElementById('modalLatencyTag');
+
+      if (isOnline) {
+        linkDot.className = 'status-dot-indicator status-dot-online';
+        linkText.innerText = 'ESP32 ONLINE';
+        linkText.style.color = '#059669';
+        linkLatency.className = 'link-latency-tag online';
+        linkLatency.innerText = `${pingMs}ms`;
+
+        topStatus.innerText = `ESP32 HARDWARE LINKED: ${data.ip || '192.168.4.1'} (${pingMs}ms) • 100% NON-BLOCKING MILLIS`;
+
+        connBox.className = 'conn-status-card is-online';
+        modalDot.className = 'status-dot-indicator status-dot-online';
+        modalTitle.innerText = 'ESP32 HARDWARE CONNECTED & ACTIVE';
+        modalTitle.style.color = '#059669';
+        modalTag.className = 'badge-live-tag';
+        modalTag.innerText = `SYNCHRONIZED (${pingMs}ms)`;
+
+        if (data.ip) document.getElementById('metaIp').innerText = data.ip;
+        document.getElementById('metaPing').innerText = `${pingMs} ms`;
+        if (data.wifi_clients !== undefined) document.getElementById('metaClients').innerText = `${data.wifi_clients} devices`;
+        if (data.heap) {
+          document.getElementById('metaHeap').innerText = `${data.heap} KB`;
+          document.getElementById('valHeap').innerText = `${data.heap} KB`;
+        }
+        if (data.uptime_sec) {
+          const m = Math.floor(data.uptime_sec / 60);
+          const s = data.uptime_sec % 60;
+          document.getElementById('metaUptime').innerText = `${m}m ${s}s`;
+        }
+      } else {
+        linkDot.className = 'status-dot-indicator status-dot-offline';
+        linkText.innerText = 'ESP32 OFFLINE';
+        linkText.style.color = '#dc2626';
+        linkLatency.className = 'link-latency-tag';
+        linkLatency.innerText = 'SIMULATOR';
+
+        topStatus.innerText = 'STANDALONE SCADA SIMULATOR (HARDWARE NOT LINKED) • TEST MODE';
+
+        connBox.className = 'conn-status-card is-offline';
+        modalDot.className = 'status-dot-indicator status-dot-offline';
+        modalTitle.innerText = 'ESP32 HARDWARE OFFLINE';
+        modalTitle.style.color = '#dc2626';
+        modalTag.className = 'badge-live-tag';
+        modalTag.style.background = '#fee2e2';
+        modalTag.style.color = '#b91c1c';
+        modalTag.style.borderColor = '#fca5a5';
+        modalTag.innerText = 'SIMULATOR ACTIVE';
+
+        document.getElementById('metaPing').innerText = '-- ms';
+      }
+    }
+
+    function testPingNow() {
+      playBeep(750, 0.1, 'sine');
+      const btn = document.getElementById('btnTestPing');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<span>Pinging ESP32 Hardware...</span>';
+      btn.disabled = true;
+
+      const target = document.getElementById('targetIpInput').value.trim();
+      appState.targetBaseUrl = target;
+      localStorage.setItem('esp32_target_ip', target);
+
+      const start = performance.now();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+      const url = (appState.targetBaseUrl ? appState.targetBaseUrl.replace(/\/$/, '') : '') + '/api/status';
+
+      fetch(url, { signal: controller.signal, cache: 'no-store' })
+        .then(res => {
+          clearTimeout(timeoutId);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(data => {
+          const latency = Math.round(performance.now() - start);
+          appState.lastPingMs = latency;
+          appState.consecutiveFails = 0;
+          updateConnectionStatusUI(true, latency, data);
+          playBeep(1000, 0.2, 'sine');
+          showToast(`ESP32 Linked! IP: ${data.ip || target} (${latency}ms)`, "#10b981");
+          addTickerLog(`🟢 Hardware Connected! IP: ${data.ip || target} | Latency: ${latency}ms`);
+        })
+        .catch(err => {
+          clearTimeout(timeoutId);
+          appState.consecutiveFails++;
+          updateConnectionStatusUI(false);
+          playBeep(350, 0.2, 'sawtooth');
+          showToast(`ESP32 Link failed. Running local simulator.`, "#ef4444");
+          addTickerLog(`⚠️ Link failed at ${target || '/'}. Running local SCADA simulator.`);
+        })
+        .finally(() => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        });
+    }
+
+    function setTargetIpPreset(preset) {
+      document.getElementById('targetIpInput').value = preset;
+      testPingNow();
+    }
+
+    function openConnectionModal() {
+      playBeep(800, 0.08);
+      document.getElementById('connectionModal').classList.add('open');
+    }
+
+    function closeConnectionModal() {
+      document.getElementById('connectionModal').classList.remove('open');
+    }
+
+    // --------------------------------------------------------------------------
+    // 7. COMMAND ACTIONS
+    // --------------------------------------------------------------------------
+    function setMode(newMode) {
+      playBeep(750, 0.12, 'square');
+      appState.mode = newMode;
+      addTickerLog(`Mode changed to: ${newMode.toUpperCase()}`);
+      showToast(`Mode switched: ${newMode.toUpperCase()}`);
+
+      if (newMode === 'emergency') {
+        appState.phase = 2;
+        appState.remainingSeconds = 999;
+      } else if (newMode === 'auto') {
+        if (appState.phase === 2) {
+          appState.phase = 0;
+          appState.remainingSeconds = appState.greenTime;
+          appState.totalPhaseSeconds = appState.greenTime;
+        }
+      }
+
+      updateCockpitUI();
+
+      const url = (appState.targetBaseUrl ? appState.targetBaseUrl.replace(/\/$/, '') : '') + '/api/mode';
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: newMode })
+      }).catch(() => {});
+    }
+
+    function requestRoadPriority(targetRoad) {
+      playBeep(900, 0.15, 'sine');
+      addTickerLog(`Manual Priority requested for ${ROAD_NAMES[targetRoad]}. Initiating safe transition.`);
+      showToast(`Priority granted: ${ROAD_NAMES[targetRoad]}`);
+
+      appState.mode = 'manual';
+
+      if (appState.activeRoad === targetRoad && appState.phase === 0) {
+        addTickerLog(`${ROAD_NAMES[targetRoad]} is already Green.`);
+        return;
+      }
+
+      if (appState.phase === 0) {
+        appState.pendingRoad = targetRoad;
+        appState.phase = 1;
+        appState.remainingSeconds = appState.yellowTime;
+        appState.totalPhaseSeconds = appState.yellowTime;
+      } else if (appState.phase === 1) {
+        appState.pendingRoad = targetRoad;
+      } else {
+        appState.activeRoad = targetRoad;
+        appState.phase = 0;
+        appState.remainingSeconds = appState.greenTime;
+        appState.totalPhaseSeconds = appState.greenTime;
+        appState.pendingRoad = -1;
+      }
+
+      updateCockpitUI();
+
+      const url = (appState.targetBaseUrl ? appState.targetBaseUrl.replace(/\/$/, '') : '') + '/api/road';
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ road: targetRoad })
+      }).catch(() => {});
+    }
+
+    function triggerAmbulanceCorridor() {
+      playBeep(1200, 0.3, 'sawtooth');
+      addTickerLog('🚨 EMERGENCY VIP / AMBULANCE CORRIDOR ACTIVATED ON ROAD 1!');
+      showToast("🚨 EMERGENCY AMBULANCE WAVE ROAD 1 ACTIVE", "#ef4444");
+      requestRoadPriority(0);
+    }
+
+    // --------------------------------------------------------------------------
+    // 8. 1-SECOND MASTER TICKER (HEARTBEAT POLL + OFFLINE SIMULATION FALLBACK)
+    // --------------------------------------------------------------------------
+    setInterval(() => {
+      appState.lastTickTime = Date.now();
+      const url = (appState.targetBaseUrl ? appState.targetBaseUrl.replace(/\/$/, '') : '') + '/api/status';
+      const start = performance.now();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 950);
+
+      fetch(url, { signal: controller.signal, cache: 'no-store' })
+        .then(res => {
+          clearTimeout(timeoutId);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(data => {
+          const latency = Math.round(performance.now() - start);
+          appState.consecutiveFails = 0;
+          updateConnectionStatusUI(true, latency, data);
+
+          appState.mode = data.mode || appState.mode;
+          appState.activeRoad = data.activeRoad !== undefined ? data.activeRoad : (data.active_road ? data.active_road - 1 : appState.activeRoad);
+          
+          if (data.phase !== undefined) {
+            if (typeof data.phase === 'number') {
+              appState.phase = data.phase;
+            } else if (typeof data.phase === 'string') {
+              appState.phase = data.phase === 'GREEN' ? 0 : (data.phase === 'YELLOW' ? 1 : 2);
+            }
+          }
+
+          if (data.remainingSeconds !== undefined) {
+            appState.remainingSeconds = data.remainingSeconds;
+          } else if (data.remaining_ms !== undefined) {
+            appState.remainingSeconds = Math.ceil(data.remaining_ms / 1000);
+          }
+
+          if (data.totalSeconds !== undefined) {
+            appState.totalPhaseSeconds = data.totalSeconds;
+          } else if (data.total_ms !== undefined) {
+            appState.totalPhaseSeconds = Math.ceil(data.total_ms / 1000);
+          }
+
+          updateCockpitUI();
+        })
+        .catch(() => {
+          clearTimeout(timeoutId);
+          appState.consecutiveFails++;
+          if (appState.consecutiveFails >= 2) {
+            updateConnectionStatusUI(false);
+          }
+          runOfflineSimulationStep();
+        });
+    }, 1000);
+
+    function runOfflineSimulationStep() {
+      if (appState.mode === 'emergency') {
+        updateCockpitUI();
+        return;
+      }
+
+      if (appState.remainingSeconds > 1) {
+        appState.remainingSeconds--;
+      } else {
+        if (appState.phase === 0) {
+          appState.phase = 1;
+          appState.remainingSeconds = appState.yellowTime;
+          appState.totalPhaseSeconds = appState.yellowTime;
+          addTickerLog(`${ROAD_NAMES[appState.activeRoad]} entering Yellow clearance (${appState.yellowTime}s).`);
+        } else if (appState.phase === 1) {
+          appState.phase = 2;
+          appState.remainingSeconds = appState.clearanceTime;
+          appState.totalPhaseSeconds = appState.clearanceTime;
+          addTickerLog('All-Red safety clearance active. Interlock locked.');
+        } else {
+          if (appState.pendingRoad !== -1) {
+            appState.activeRoad = appState.pendingRoad;
+            appState.pendingRoad = -1;
+            addTickerLog(`Manual Priority granted: ${ROAD_NAMES[appState.activeRoad]} is now GREEN.`);
+          } else if (appState.mode === 'auto') {
+            appState.activeRoad = (appState.activeRoad + 1) % 4;
+            addTickerLog(`Auto cycle advanced: ${ROAD_NAMES[appState.activeRoad]} is now GREEN.`);
+          }
+          appState.phase = 0;
+          appState.remainingSeconds = appState.greenTime;
+          appState.totalPhaseSeconds = appState.greenTime;
+        }
+      }
+
+      updateCockpitUI();
+    }
+
+    // --------------------------------------------------------------------------
+    // 9. CONFIG SETTINGS & PRESETS
+    // --------------------------------------------------------------------------
+    function openSettings() {
+      playBeep(700, 0.08);
+      document.getElementById('inputGreenTime').value = appState.greenTime;
+      document.getElementById('valGreenDisp').innerText = appState.greenTime + 's';
+      document.getElementById('inputYellowTime').value = appState.yellowTime;
+      document.getElementById('valYellowDisp').innerText = appState.yellowTime + 's';
+      document.getElementById('settingsModal').classList.add('open');
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.remove('open');
+    }
+
+    function applyPreset(g, y) {
+      document.getElementById('inputGreenTime').value = g;
+      document.getElementById('valGreenDisp').innerText = g + 's';
+      document.getElementById('inputYellowTime').value = y;
+      document.getElementById('valYellowDisp').innerText = y + 's';
+      showToast(`Preset loaded: Green ${g}s, Yellow ${y}s`);
+    }
+
+    function saveSettings() {
+      playBeep(950, 0.15);
+      const g = parseInt(document.getElementById('inputGreenTime').value);
+      const y = parseInt(document.getElementById('inputYellowTime').value);
+      appState.greenTime = g;
+      appState.yellowTime = y;
+      if (appState.phase === 0) appState.totalPhaseSeconds = g;
+
+      addTickerLog(`Timings saved: Green = ${g}s, Yellow = ${y}s.`);
+      showToast(`Timings uploaded: G:${g}s, Y:${y}s`);
+      closeSettings();
+
+      const url = (appState.targetBaseUrl ? appState.targetBaseUrl.replace(/\/$/, '') : '') + '/api/settings';
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ greenTime: g, yellowTime: y })
+      }).catch(() => {});
+    }
+
+    // Direct click on canvas road corridors + spawn wave ripples
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const mx = (e.clientX - rect.left) * scaleX;
+      const my = (e.clientY - rect.top) * scaleY;
+
+      clickRipples.push({ x: mx, y: my, radius: 10, alpha: 0.9 });
+
+      if (mx > CX - ROAD_WIDTH / 2 && mx < CX + ROAD_WIDTH / 2 && my < CY - ROAD_WIDTH / 2) {
+        requestRoadPriority(0); // North
+      } else if (mx > CX + ROAD_WIDTH / 2 && my > CY - ROAD_WIDTH / 2 && my < CY + ROAD_WIDTH / 2) {
+        requestRoadPriority(1); // East
+      } else if (mx > CX - ROAD_WIDTH / 2 && mx < CX + ROAD_WIDTH / 2 && my > CY + ROAD_WIDTH / 2) {
+        requestRoadPriority(2); // South
+      } else if (mx < CX - ROAD_WIDTH / 2 && my > CY - ROAD_WIDTH / 2 && my < CY + ROAD_WIDTH / 2) {
+        requestRoadPriority(3); // West
+      }
+    });
+
+    // Apply initial audio state (Defaults to MUTED/Silent unless explicitly unmuted)
+    setAudioState(appState.audioEnabled, false);
+
+    // Initial render
+    updateCockpitUI();
+  </script>
+</body>
+</html>
