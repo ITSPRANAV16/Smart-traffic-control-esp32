@@ -2347,6 +2347,22 @@
           }
           runOfflineSimulationStep();
         });
+
+      // Smart Auto-Discovery: Proactively probe ESP32 at 192.168.4.1 if not already linked
+      if (appState.targetBaseUrl !== 'http://192.168.4.1' && window.location.hostname !== '192.168.4.1' && window.location.protocol === 'http:') {
+        fetch('http://192.168.4.1/api/status', { mode: 'cors', cache: 'no-store' })
+          .then(r => r.json())
+          .then(espData => {
+            if (espData && (espData.status === 'online' || espData.ip)) {
+              appState.targetBaseUrl = 'http://192.168.4.1';
+              localStorage.setItem('esp32_target_ip', 'http://192.168.4.1');
+              document.getElementById('targetIpInput').value = 'http://192.168.4.1';
+              showToast("🟢 ESP32 Wi-Fi Linked! (192.168.4.1)", "#10b981");
+              addTickerLog("🟢 ESP32 Wi-Fi Detected! Hardware Synchronized at 192.168.4.1");
+            }
+          })
+          .catch(() => {});
+      }
     }, 1000);
 
     function runOfflineSimulationStep() {
